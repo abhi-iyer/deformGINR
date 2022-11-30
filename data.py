@@ -17,7 +17,7 @@ def process_train(path="./data"):
 
         if not os.path.exists(output_file):
             mesh = load_mesh(cloud_file)
-            labels = np.load(label_file).argmax(axis=1).reshape(-1, 1)
+            labels = np.load(label_file).argmax(axis=1)
 
             points, adj = mesh_to_graph(mesh)
 
@@ -63,6 +63,12 @@ class GraphDataset(Dataset):
 
     def __len__(self):
         return len(self.filenames)
+
+    @property
+    def target_dim(self):
+        targets = self[0]["targets"]
+
+        return int((targets.max() - targets.min() + 1).item())
 
     @staticmethod
     def get_subsampling_idx(n_points, to_keep):

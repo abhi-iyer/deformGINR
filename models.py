@@ -7,12 +7,12 @@ def sine_init(layer, first_layer):
             if hasattr(layer, "weight"):
                 num_inputs = layer.weight.size(-1)
 
-                layer.weight.uniform_(-1/num_inputs, 1/num_inputs)
+                layer.weight.uniform_(-1 / num_inputs, 1 / num_inputs)
         else:
             if hasattr(layer, "weight"):
                 num_inputs = layer.weight.size(-1)
 
-                layer.weight.uniform_(-torch.sqrt(6/num_inputs)/30, torch.sqrt(6/num_inputs)/30)
+                layer.weight.uniform_(-np.sqrt(6/num_inputs) / 30, np.sqrt(6/num_inputs) / 30)
 
                 
 class Sine(nn.Module):
@@ -26,7 +26,7 @@ class Sine(nn.Module):
     
 
 class GINR(nn.Module):
-    def __init__(self, input_dim, output_dim, dataset_size, hidden_dim=512, num_layers=6, sine=True, all_sine=True, bn=False, skip=True):
+    def __init__(self, input_dim, output_dim, hidden_dim=512, num_layers=6, sine=True, all_sine=True, bn=False, skip=True):
         super().__init__()
 
         self.input_dim = input_dim
