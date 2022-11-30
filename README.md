@@ -1,4 +1,4 @@
-# Deformable Generalizable Implicit Neural Representations
+# Generalizable Implicit Neural Representations for Deformable Objects
 
 Ameya Daigavane*, Abhiram Iyer*, Sunny Duan*
 
