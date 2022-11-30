@@ -20,7 +20,7 @@ bunny_config.update(
     scheduler_class=lr_scheduler.ReduceLROnPlateau,
     scheduler_args=dict(
         factor=0.5,
-        patience=5000,
+        patience=100,
     ),
     loss_fn=nn.CrossEntropyLoss(),
 )
