@@ -1,8 +1,8 @@
 from imports import *
 from utils import *
 
-def process_train(path="./data"):
-    path = os.path.abspath(os.path.join(path, "train"))
+def process_data(path="./data", train=True):
+    path = os.path.abspath(os.path.join(path, "train" if train else "test"))
 
     objects = [each.rstrip(".stl") for each in os.listdir(path) if ".stl" in each]
 
@@ -37,12 +37,12 @@ def process_train(path="./data"):
 
 
 class GraphDataset(Dataset):
-    def __init__(self, dataset_dir, n_fourier=100, n_nodes_in_sample=5000):
+    def __init__(self, dataset_dir, train, n_fourier=100, n_nodes_in_sample=5000):
         self.dataset_dir = os.path.abspath(dataset_dir)
         self.n_fourier = n_fourier
         self.n_nodes_in_sample = n_nodes_in_sample
 
-        self.filenames = process_train(self.dataset_dir)
+        self.filenames = process_data(self.dataset_dir, train)
         self.npzs = [np.load(f) for f in self.filenames]
 
 
