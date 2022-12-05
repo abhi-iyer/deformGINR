@@ -61,6 +61,14 @@ class GraphDataset(Dataset):
 
         return data
 
+    def get_full(self, index):
+        data = {}
+
+        input_data = torch.from_numpy(self.npzs[index]["fourier"][:, :self.n_fourier]).float()
+        target_data = torch.from_numpy(self.npzs[index]["target"]).float()
+
+        return input_data, target_data, index
+
     def __len__(self):
         return len(self.filenames)
 
@@ -74,7 +82,7 @@ class GraphDataset(Dataset):
     def get_subsampling_idx(n_points, to_keep):
         if n_points >= to_keep:
             idx = torch.randperm(n_points)[:to_keep]
-        else:
+        else:            
             # Sample some indices more than once
             idx = (
                 torch.randperm(n_points * int(np.ceil(to_keep / n_points)))[:to_keep]
