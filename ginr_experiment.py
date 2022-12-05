@@ -18,11 +18,20 @@ class GINR_Experiment():
         
         self.history = []
         self.train_loss = []
+        self.test_loss = []
 
         dataset_args = deepcopy(self.config['dataset_args'])
-        dataset_args.update(train=True)
 
+        dataset_args.update(train=True)
         self.train_loader = DataLoader(
+            self.config['dataset_class'](**dataset_args),
+            batch_size=self.config['batch_size'],
+            shuffle=True,
+            pin_memory=True,
+        )
+
+        dataset_args.update(train=False)
+        self.test_loader = DataLoader(
             self.config['dataset_class'](**dataset_args),
             batch_size=self.config['batch_size'],
             shuffle=True,
@@ -34,7 +43,7 @@ class GINR_Experiment():
             self.train_loader.dataset.target_dim,
         ).to(self.device)
         self.optimizer = self.config['optimizer_class'](self.model.parameters(), **self.config["optimizer_args"])
-        self.scheduler = self.config['scheduler_class'](self.optimizer, **self.config["scheduler_args"])
+        # self.scheduler = self.config['scheduler_class'](self.optimizer, **self.config["scheduler_args"])
         self.loss_fn = self.config['loss_fn']
         
         self.config['model_class'] = self.model
@@ -42,12 +51,12 @@ class GINR_Experiment():
         
         # load checkpoint and check compatibility 
         if os.path.isfile(self.config_path):
-            with open(self.config_path, 'r') as f:
-                if f.read()[:-1] != repr(self):
-                    raise ValueError(
-                        "Cannot create this experiment: "
-                        "Checkpoint found with same name but different config."
-                    )
+            #with open(self.config_path, 'r') as f:
+            #    if f.read()[:-1] != repr(self):
+            #        raise ValueError(
+            #            "Cannot create this experiment: "
+            #            "Checkpoint found with same name but different config."
+            #        )
                     
             self.load()
         else:
@@ -72,20 +81,22 @@ class GINR_Experiment():
         return {
             'model' : self.model.state_dict(),
             'optimizer' : self.optimizer.state_dict(),
-            'scheduler' : self.scheduler.state_dict(),
+            # 'scheduler' : self.scheduler.state_dict(),
             'history' : self.history,
             'train loss' : self.train_loss,
+            'test loss' : self.test_loss,
         }
     
     def load_state_dict(self, checkpoint):
         self.model.load_state_dict(checkpoint['model'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
 
-        self.scheduler = self.config['scheduler_class'](self.optimizer, **self.config["scheduler_args"])
-        self.scheduler.load_state_dict(checkpoint['scheduler'])
+        # self.scheduler = self.config['scheduler_class'](self.optimizer, **self.config["scheduler_args"])
+        # self.scheduler.load_state_dict(checkpoint['scheduler'])
         
         self.history = checkpoint['history']
         self.train_loss = checkpoint['train loss']
+        self.test_loss = checkpoint['test loss']
         
     def save(self):
         torch.save(self.state_dict(), self.checkpoint_path)
@@ -117,7 +128,10 @@ class GINR_Experiment():
         axes[0].set_xlabel('Epochs', size=16, color='teal')
         axes[0].grid()
         
-        axes[1].set_visible(False)
+        axes[1].plot(self.test_loss)
+        axes[1].set_title('Testing loss', size=16, color='teal')
+        axes[1].set_xlabel('Epochs', size=16, color='teal')
+        axes[1].grid()
 
         plt.show()
         
@@ -149,9 +163,49 @@ class GINR_Experiment():
 
         epoch_loss = np.mean(losses)
 
-        self.scheduler.step(epoch_loss)
+        # self.scheduler.step(epoch_loss)
         
         return epoch_loss
+
+
+    def test_epoch(self):
+        self.model.eval()
+        
+        losses = []
+        
+        for batch in self.test_loader:
+            inputs, targets, _ = batch["inputs"], batch["targets"], batch["index"]
+
+            inputs = inputs.to(self.device)
+            inputs.requires_grad_()
+
+            targets = targets.to(self.device)
+
+            pred = self.model.forward(inputs)
+
+            loss = self.loss_fn(
+                torch.permute(pred, (0, 2, 1)), 
+                targets.reshape(inputs.shape[0], -1).long()
+            )
+            
+            losses.append(loss.detach().cpu().item())
+        
+        return np.mean(losses)
+
+
+    def test_full(self, object_index):
+        self.model.eval()
+        
+        with torch.no_grad():
+            inputs, _, _ = self.test_loader.dataset.get_full(object_index)
+
+            inputs = inputs.to(self.device)
+
+            pred = self.model(inputs).detach().cpu().numpy().argmax(axis=1)
+
+        np.save("./object{0}_predictions".format(object_index), pred)
+
+        return pred
 
     
     def train(self, num_epochs, show_plot):
@@ -163,14 +217,18 @@ class GINR_Experiment():
         
         while self.epoch < num_epochs:            
             self.train_loss.append(self.train_epoch())
+
+            if (self.epoch % 10) == 0:
+                self.test_loss.append(self.test_epoch())
             
             self.history.append(self.epoch + 1)
             
             if show_plot and (self.epoch + 1) % 10 == 0:
                 self.plot(clear=True)
-            else:
+            elif not show_plot:
                 print("Epoch: {0}".format(self.epoch))
                 print("Train Loss: {:.4f}".format(self.train_loss[-1]))
+                print("Test Loss: {:.4f}".format(self.test_loss[-1]))
                 print()
             
             thread = Thread(target=self.save)
