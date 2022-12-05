@@ -17,11 +17,6 @@ bunny_config.update(
     optimizer_args=dict(
         lr=1e-4,
     ),
-    scheduler_class=lr_scheduler.ReduceLROnPlateau,
-    scheduler_args=dict(
-        factor=0.5,
-        patience=100,
-    ),
     loss_fn=nn.CrossEntropyLoss(),
 )
 
