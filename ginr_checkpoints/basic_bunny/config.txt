@@ -23,12 +23,10 @@ Parameter Group 0
     capturable: False
     eps: 1e-08
     foreach: None
-    lr: 1.220703125e-08
+    lr: 0.0001
     maximize: False
     weight_decay: 0.01
 )
 optimizer_args: {'lr': 0.0001}
-scheduler_class: <class 'torch.optim.lr_scheduler.ReduceLROnPlateau'>
-scheduler_args: {'factor': 0.5, 'patience': 100}
 loss_fn: CrossEntropyLoss()
 
