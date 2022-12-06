@@ -1,19 +1,25 @@
 from imports import *
 from utils import *
 
-def process_data(path="./data", train=True):
-    path = os.path.abspath(os.path.join(path, "train" if train else "test"))
+def process_data(n_fourier, path, train=True):
+    train_path = os.path.abspath(os.path.join(path, "train"))
+    test_path = os.path.abspath(os.path.join(path, "test"))
 
-    objects = [each.rstrip(".stl") for each in os.listdir(path) if ".stl" in each]
+    train_objs = [each.rstrip(".stl") for each in os.listdir(train_path) if (".stl" in each and "deformed" not in each)]
+    test_objs = [each.rstrip(".stl") for each in os.listdir(test_path) if (".stl" in each and "deformed" in each)]
+    assert len(train_objs) == 1
 
-    npz_files = []
+    label_file = os.path.join(train_path, train_objs[0] + "_labels.npy")
+    assert os.path.exists(label_file)
 
-    for o in objects:
-        cloud_file = os.path.join(path, o + ".stl")
-        label_file = os.path.join(path, o + "_labels.npy")
-        output_file = os.path.join(path, o + ".npz")
+    # start processing
+    process_path = train_path if train else test_path
+    process_objs = train_objs if train else test_objs
+    processed_files = []
 
-        assert os.path.exists(label_file)
+    for obj in process_objs:
+        cloud_file = os.path.join(process_path, obj + ".stl")
+        output_file = os.path.join(process_path, obj + "_{}_fourier.npz".format(str(n_fourier)))
 
         if not os.path.exists(output_file):
             mesh = load_mesh(cloud_file)
@@ -21,62 +27,53 @@ def process_data(path="./data", train=True):
 
             points, adj = mesh_to_graph(mesh)
 
-            u = get_fourier(adj)
+            u = get_fourier(adj, n_fourier)
 
             np.savez(
                 output_file,
                 points=points,
                 fourier=u,
-                target=labels, 
+                target=labels,
                 faces=mesh.faces,
             )
 
-        npz_files.append(output_file)
+        processed_files.append((obj, output_file))
 
-    return sorted(npz_files)
+    return processed_files
 
 
 class GraphDataset(Dataset):
     def __init__(self, dataset_dir, train, n_fourier=100, n_nodes_in_sample=5000):
         self.dataset_dir = os.path.abspath(dataset_dir)
+        self.train = train
         self.n_fourier = n_fourier
         self.n_nodes_in_sample = n_nodes_in_sample
 
-        self.filenames = process_data(self.dataset_dir, train)
-        self.npzs = [np.load(f) for f in self.filenames]
-
+        self.files = process_data(n_fourier, self.dataset_dir, train)
+        self.data = [np.load(f) for _,f in self.files]
 
     def __getitem__(self, index):
-        data = {}
-
-        input_data = torch.from_numpy(self.npzs[index]["fourier"][:, :self.n_fourier]).float()
-        target_data = torch.from_numpy(self.npzs[index]["target"]).float()
+        input_data = torch.from_numpy(self.data[index]["fourier"][:, :self.n_fourier]).float()
+        target_data = torch.from_numpy(self.data[index]["target"]).float()
 
         n_points = input_data.shape[0]
-        points_idx = self.get_subsampling_idx(n_points, self.n_nodes_in_sample)
+        selected_points = self.get_subsampling_idx(n_points, self.n_nodes_in_sample)
 
-        data["inputs"] = input_data[points_idx]
-        data["targets"] = target_data[points_idx]
-        data["index"] = index    
+        return input_data[selected_points], target_data[selected_points]
 
-        return data
+    def get_deformation_points(self, index):
+        assert not self.train 
 
-    def get_full(self, index):
-        data = {}
-
-        input_data = torch.from_numpy(self.npzs[index]["fourier"][:, :self.n_fourier]).float()
-        target_data = torch.from_numpy(self.npzs[index]["target"]).float()
-
-        return input_data, target_data, index
+        return torch.from_numpy(self.data[index]["fourier"][:, :self.n_fourier]).float()
 
     def __len__(self):
-        return len(self.filenames)
+        return len(self.data)
 
     @property
     def target_dim(self):
-        targets = self[0]["targets"]
+        targets = self.data[0]["target"]
 
-        return int((targets.max() - targets.min() + 1).item())
+        return int(targets.max() - targets.min() + 1)
 
     @staticmethod
     def get_subsampling_idx(n_points, to_keep):
