@@ -43,7 +43,6 @@ class GINR_Experiment():
             self.train_loader.dataset.target_dim,
         ).to(self.device)
         self.optimizer = self.config['optimizer_class'](self.model.parameters(), **self.config["optimizer_args"])
-        # self.scheduler = self.config['scheduler_class'](self.optimizer, **self.config["scheduler_args"])
         self.loss_fn = self.config['loss_fn']
         
         self.config['model_class'] = self.model
@@ -51,12 +50,12 @@ class GINR_Experiment():
         
         # load checkpoint and check compatibility 
         if os.path.isfile(self.config_path):
-            #with open(self.config_path, 'r') as f:
-            #    if f.read()[:-1] != repr(self):
-            #        raise ValueError(
-            #            "Cannot create this experiment: "
-            #            "Checkpoint found with same name but different config."
-            #        )
+            with open(self.config_path, 'r') as f:
+               if f.read()[:-1] != repr(self):
+                   raise ValueError(
+                       "Cannot create this experiment: "
+                       "Checkpoint found with same name but different config."
+                   )
                     
             self.load()
         else:
@@ -81,7 +80,6 @@ class GINR_Experiment():
         return {
             'model' : self.model.state_dict(),
             'optimizer' : self.optimizer.state_dict(),
-            # 'scheduler' : self.scheduler.state_dict(),
             'history' : self.history,
             'train loss' : self.train_loss,
             'test loss' : self.test_loss,
@@ -90,9 +88,6 @@ class GINR_Experiment():
     def load_state_dict(self, checkpoint):
         self.model.load_state_dict(checkpoint['model'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
-
-        # self.scheduler = self.config['scheduler_class'](self.optimizer, **self.config["scheduler_args"])
-        # self.scheduler.load_state_dict(checkpoint['scheduler'])
         
         self.history = checkpoint['history']
         self.train_loss = checkpoint['train loss']
@@ -140,9 +135,7 @@ class GINR_Experiment():
         
         losses = []
         
-        for batch in self.train_loader:
-            inputs, targets, _ = batch["inputs"], batch["targets"], batch["index"]
-
+        for inputs, targets in self.train_loader:
             inputs = inputs.to(self.device)
             inputs.requires_grad_()
 
@@ -161,11 +154,7 @@ class GINR_Experiment():
             
             losses.append(loss.detach().cpu().item())
 
-        epoch_loss = np.mean(losses)
-
-        # self.scheduler.step(epoch_loss)
-        
-        return epoch_loss
+        return np.mean(losses)
 
 
     def test_epoch(self):
@@ -173,9 +162,7 @@ class GINR_Experiment():
         
         losses = []
         
-        for batch in self.test_loader:
-            inputs, targets, _ = batch["inputs"], batch["targets"], batch["index"]
-
+        for inputs, targets in self.test_loader:
             inputs = inputs.to(self.device)
             inputs.requires_grad_()
 
@@ -192,20 +179,22 @@ class GINR_Experiment():
         
         return np.mean(losses)
 
+    def save_predictions(self):
+        predictions_dir = os.path.join(self.train_loader.dataset.dataset_dir, "predictions")
+        os.makedirs(predictions_dir, exist_ok=True)
 
-    def test_full(self, object_index):
         self.model.eval()
-        
+
         with torch.no_grad():
-            inputs, _, _ = self.test_loader.dataset.get_full(object_index)
+            for i in range(len(self.test_loader.dataset)):
+                deformed_points = self.test_loader.dataset.get_deformation_points(i)
+                deformed_points = deformed_points.to(self.device)
 
-            inputs = inputs.to(self.device)
+                predictions = self.model(deformed_points).argmax(dim=1).detach().cpu().numpy()
 
-            pred = self.model(inputs).detach().cpu().numpy().argmax(axis=1)
+                predictions_path = os.path.join(predictions_dir, self.test_loader.dataset.files[i][0])
 
-        np.save("./object{0}_predictions".format(object_index), pred)
-
-        return pred
+                np.save(predictions_path, predictions)
 
     
     def train(self, num_epochs, show_plot):
@@ -213,7 +202,7 @@ class GINR_Experiment():
             self.plot(clear=False)
         
         print(self)
-        print('Start/Continue training from epoch {0}'.format(self.epoch))
+        print("Start/Continue training from epoch {0}".format(self.epoch))
         
         while self.epoch < num_epochs:            
             self.train_loss.append(self.train_epoch())
@@ -235,4 +224,8 @@ class GINR_Experiment():
             thread.start()
             thread.join()
             
-        print('Finished training\n')
+        print("Finished training\n")
+
+        print("Saving predictions\n")
+        self.save_predictions()
+        print("Finished\n")
