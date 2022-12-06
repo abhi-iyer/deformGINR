@@ -61,8 +61,9 @@ class GraphDataset(Dataset):
 
         return input_data[selected_points], target_data[selected_points]
 
-    def get_deformation_points(self, index):
-        assert not self.train 
+    def get_all_points(self, index):
+        if self.train:
+            assert index == 0
 
         return torch.from_numpy(self.data[index]["fourier"][:, :self.n_fourier]).float()
 

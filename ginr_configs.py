@@ -12,14 +12,14 @@ regular_bunny_n_fourier.update(
     dataset_args=dict(
         dataset_dir="./regular_bunny_data",
         n_fourier=10,
-        n_nodes_in_sample=5000,
+        n_nodes_in_sample=256,
     ),
     model_class=GINR,
     optimizer_class=optim.AdamW,
     optimizer_args=dict(
         lr=1e-4,
     ),
-    loss_fn=nn.CrossEntropyLoss(),
+    loss_fn=nn.CrossEntropyLoss,
 )
 
 regular_bunny_10_fourier = deepcopy(regular_bunny_n_fourier)

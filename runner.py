@@ -35,4 +35,4 @@ from ginr_configs import CONFIGS
 # regular_bunny_90_fourier.train(num_epochs=5000, show_plot=False)
 
 regular_bunny_100_fourier = GINR_Experiment("regular_bunny_100_fourier", CONFIGS["regular_bunny_100_fourier"])
-regular_bunny_100_fourier.train(num_epochs=5000, show_plot=False)
+regular_bunny_100_fourier.train(num_epochs=10000, show_plot=False)

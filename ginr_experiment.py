@@ -43,10 +43,13 @@ class GINR_Experiment():
             self.train_loader.dataset.target_dim,
         ).to(self.device)
         self.optimizer = self.config['optimizer_class'](self.model.parameters(), **self.config["optimizer_args"])
-        self.loss_fn = self.config['loss_fn']
+        
+        labels = nn.functional.one_hot(torch.Tensor(self.train_loader.dataset.data[0]['target']).long()).to(self.device)
+        self.loss_fn = self.config['loss_fn'](weight=1/labels.sum(dim=0))
         
         self.config['model_class'] = self.model
         self.config['optimizer_class'] = self.optimizer
+        self.config['loss_fn'] = self.loss_fn
         
         # load checkpoint and check compatibility 
         if os.path.isfile(self.config_path):
@@ -185,16 +188,19 @@ class GINR_Experiment():
 
         self.model.eval()
 
-        with torch.no_grad():
-            for i in range(len(self.test_loader.dataset)):
-                deformed_points = self.test_loader.dataset.get_deformation_points(i)
-                deformed_points = deformed_points.to(self.device)
+        loaders = [self.train_loader, self.test_loader]
 
-                predictions = self.model(deformed_points).argmax(dim=1).detach().cpu().numpy()
+        for l in loaders:
+            with torch.no_grad():
+                for i in range(len(l.dataset)):
+                    deformed_points = l.dataset.get_all_points(i)
+                    deformed_points = deformed_points.to(self.device)
 
-                predictions_path = os.path.join(predictions_dir, self.test_loader.dataset.files[i][0])
+                    predictions = self.model(deformed_points).argmax(dim=1).detach().cpu().numpy()
 
-                np.save(predictions_path, predictions)
+                    predictions_path = os.path.join(predictions_dir, l.dataset.files[i][0])
+
+                    np.save(predictions_path, predictions)
 
     
     def train(self, num_epochs, show_plot):
