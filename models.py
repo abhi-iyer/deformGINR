@@ -52,21 +52,6 @@ class GINR(nn.Module):
             if (i + 1) == self.num_layers - 1:
                 out_dim = output_dim
 
-    @staticmethod
-    def gradient(inputs, outputs):
-        d_points = torch.ones_like(outputs, requires_grad=False, device=outputs.device)
-
-        points_grad = torch.autograd.grad(
-            outputs=outputs,
-            inputs=inputs,
-            grad_outputs=d_points,
-            create_graph=True,
-            retain_graph=True,
-            only_inputs=True,
-        )[0][..., -3:]
-
-        return points_grad
-
     def forward(self, x):
         # feedforward through MLP
         x_in = x
