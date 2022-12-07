@@ -167,9 +167,10 @@ class GINR_Experiment():
 
             targets = targets.to(self.device)
 
-            pred = self.model(inputs.abs())
+            pred = self.model(inputs.abs()).permute(0, 2, 1)
+            #pred = self.model(inputs) + self.model(-inputs)
 
-            loss = self.loss_fn(pred.squeeze(), targets.squeeze().long())
+            loss = self.loss_fn(pred, targets.long())
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -191,9 +192,10 @@ class GINR_Experiment():
 
             targets = targets.to(self.device)
 
-            pred = self.model(inputs.abs())
-
-            loss = self.loss_fn(pred.squeeze(), targets.squeeze().long())
+            pred = self.model(inputs.abs()).permute(0, 2, 1)
+            #pred = self.model(inputs) + self.model(-inputs)
+            
+            loss = self.loss_fn(pred, targets.long())
 
             losses.append(loss.detach().cpu().item())
         
@@ -214,6 +216,7 @@ class GINR_Experiment():
                 points = points.to(self.device)
 
                 predictions.append(self.model(points.abs()).argmax(dim=1).detach().cpu().numpy())
+                #predictions.append((self.model(points) + self.model(-points)).argmax(dim=1).detach().cpu().numpy())
                 labels.append(targets.detach().cpu().numpy())
                 objects.append(loader.dataset.files[i][0])
 
