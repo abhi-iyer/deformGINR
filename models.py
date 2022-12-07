@@ -1,7 +1,7 @@
 from imports import *
 
 
-def sine_init(layer, first_layer):
+def weight_init(layer, first_layer):
     with torch.no_grad():
         if first_layer:
             if hasattr(layer, "weight"):
@@ -14,19 +14,9 @@ def sine_init(layer, first_layer):
 
                 layer.weight.uniform_(-np.sqrt(6/num_inputs) / 30, np.sqrt(6/num_inputs) / 30)
 
-                
-class Sine(nn.Module):
-    def __init__(self, omega_knot=30):
-        super().__init__()
-
-        self.omega_knot = omega_knot
-
-    def forward(self, x):
-        return torch.sin(self.omega_knot * x)
-    
 
 class GINR(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dim=512, num_layers=6, sine=True, all_sine=True, bn=False, skip=True):
+    def __init__(self, input_dim, output_dim, hidden_dim=512, num_layers=6, bn=False, skip=True):
         super().__init__()
 
         self.input_dim = input_dim
@@ -41,18 +31,12 @@ class GINR(nn.Module):
         for i in range(num_layers):
             layer = nn.Linear(in_dim, out_dim)
 
-            sine_init(layer, i == 0)
+            weight_init(layer, i == 0)
 
             self.model.append(layer)
 
             if i < self.num_layers - 1:
-                if sine:
-                    if i == 0:
-                        self.model.append(Sine())
-                    else:
-                        self.model.append(Sine() if all_sine else nn.Tanh())
-                else:
-                    self.model.append(nn.ReLU())
+                self.model.append(nn.ReLU())
 
                 if bn:
                     self.model.append(nn.LayerNorm(out_dim))

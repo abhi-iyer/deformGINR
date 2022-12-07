@@ -19,7 +19,9 @@ class GINR_Experiment():
         
         self.history = []
         self.train_loss = []
+        self.train_acc = []
         self.test_loss = []
+        self.test_acc = []
 
         dataset_args = deepcopy(self.config['dataset_args'])
 
@@ -86,7 +88,9 @@ class GINR_Experiment():
             'optimizer' : self.optimizer.state_dict(),
             'history' : self.history,
             'train loss' : self.train_loss,
+            'train acc' : self.train_acc,
             'test loss' : self.test_loss,
+            'test acc' : self.test_acc,
         }
     
     def load_state_dict(self, checkpoint):
@@ -95,7 +99,9 @@ class GINR_Experiment():
         
         self.history = checkpoint['history']
         self.train_loss = checkpoint['train loss']
+        self.train_acc = checkpoint['train acc']
         self.test_loss = checkpoint['test loss']
+        self.test_acc = checkpoint['test acc']
         
     def save(self):
         torch.save(self.state_dict(), self.checkpoint_path)
@@ -115,12 +121,14 @@ class GINR_Experiment():
             display.display(plt.clf())
             display.clear_output(wait=True)
         
-        fig, axes = plt.subplots(1, 2, figsize=(10, 5), constrained_layout=True)
+        fig, axes = plt.subplots(2, 2, figsize=(10, 5), constrained_layout=True)
         
         axes = axes.flatten()
         
         axes[0].clear()
         axes[1].clear()
+        axes[2].clear()
+        axes[3].clear()
         
         axes[0].plot(self.train_loss)
         axes[0].set_title('Training loss', size=16, color='teal')
@@ -134,6 +142,18 @@ class GINR_Experiment():
         axes[1].set_ylim(0, 5)
         axes[1].grid()
 
+        axes[2].plot(self.train_acc)
+        axes[2].set_title('Training accuracy', size=16, color='teal')
+        axes[2].set_xlabel('Epochs', size=16, color='teal')
+        axes[2].set_ylim(0, 1)
+        axes[2].grid()
+        
+        axes[3].plot(self.test_acc)
+        axes[3].set_title('Testing accuracy', size=16, color='teal')
+        axes[3].set_xlabel('Epochs', size=16, color='teal')
+        axes[3].set_ylim(0, 1)
+        axes[3].grid()
+        
         plt.show()
         
     def train_epoch(self):
@@ -147,12 +167,9 @@ class GINR_Experiment():
 
             targets = targets.to(self.device)
 
-            pred = self.model.forward(inputs)
+            pred = self.model(inputs.abs())
 
-            loss = self.loss_fn(
-                torch.permute(pred, (0, 2, 1)), 
-                targets.reshape(inputs.shape[0], -1).long()
-            )
+            loss = self.loss_fn(pred.squeeze(), targets.squeeze().long())
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -174,37 +191,42 @@ class GINR_Experiment():
 
             targets = targets.to(self.device)
 
-            pred = self.model.forward(inputs)
+            pred = self.model(inputs.abs())
 
-            loss = self.loss_fn(
-                torch.permute(pred, (0, 2, 1)), 
-                targets.reshape(inputs.shape[0], -1).long()
-            )
-            
+            loss = self.loss_fn(pred.squeeze(), targets.squeeze().long())
+
             losses.append(loss.detach().cpu().item())
         
         return np.mean(losses)
 
-    def save_predictions(self):
-        predictions_dir = os.path.join(self.output_dir, "predictions")
-        os.makedirs(predictions_dir, exist_ok=True)
+    def accuracy(self, train, save_predictions=False):
+        loader = self.train_loader if train else self.test_loader
+
+        predictions = []
+        labels = []
+        objects = []
 
         self.model.eval()
 
-        loaders = [self.train_loader, self.test_loader]
+        with torch.no_grad():
+            for i in range(len(loader.dataset)):
+                points, targets = loader.dataset.get_all_points(i)
+                points = points.to(self.device)
 
-        for l in loaders:
-            with torch.no_grad():
-                for i in range(len(l.dataset)):
-                    deformed_points = l.dataset.get_all_points(i)
-                    deformed_points = deformed_points.to(self.device)
+                predictions.append(self.model(points.abs()).argmax(dim=1).detach().cpu().numpy())
+                labels.append(targets.detach().cpu().numpy())
+                objects.append(loader.dataset.files[i][0])
 
-                    predictions = self.model(deformed_points).argmax(dim=1).detach().cpu().numpy()
+            accuracy = (np.concatenate(predictions) == np.concatenate(labels)).sum() / len(np.concatenate(labels))
 
-                    predictions_path = os.path.join(predictions_dir, l.dataset.files[i][0])
+            if save_predictions:
+                predictions_dir = os.path.join(self.output_dir, "predictions")
+                os.makedirs(predictions_dir, exist_ok=True)
 
-                    np.save(predictions_path, predictions)
+                for o, p in zip(objects, predictions):
+                    np.save(os.path.join(predictions_dir, o), p)
 
+            return accuracy
     
     def train(self, num_epochs, show_plot):
         if show_plot:
@@ -215,18 +237,22 @@ class GINR_Experiment():
         
         while self.epoch < num_epochs:            
             self.train_loss.append(self.train_epoch())
+            self.train_acc.append(self.accuracy(train=True, save_predictions=False))
 
             if (self.epoch % 10) == 0:
                 self.test_loss.append(self.test_epoch())
+                self.test_acc.append(self.accuracy(train=False, save_predictions=False))
             
             self.history.append(self.epoch + 1)
             
-            if show_plot and (self.epoch + 1) % 10 == 0:
+            if show_plot and (self.epoch + 1) % 100 == 0:
                 self.plot(clear=True)
             elif not show_plot:
                 print("Epoch: {0}".format(self.epoch))
                 print("Train Loss: {:.4f}".format(self.train_loss[-1]))
                 print("Test Loss: {:.4f}".format(self.test_loss[-1]))
+                print("Train Acc: {:.4f}".format(self.train_acc[-1]))
+                print("Test Acc: {:.4f}".format(self.test_acc[-1]))
                 print()
             
             thread = Thread(target=self.save)
@@ -236,5 +262,6 @@ class GINR_Experiment():
         print("Finished training\n")
 
         print("Saving predictions\n")
-        self.save_predictions()
+        _ = self.accuracy(train=True, save_predictions=True)
+        _ = self.accuracy(train=False, save_predictions=True)
         print("Finished\n")

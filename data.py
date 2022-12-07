@@ -62,10 +62,14 @@ class GraphDataset(Dataset):
         return input_data[selected_points], target_data[selected_points]
 
     def get_all_points(self, index):
+        # only use one training example -- the embeddings of the regular, undeformed object
         if self.train:
             assert index == 0
 
-        return torch.from_numpy(self.data[index]["fourier"][:, :self.n_fourier]).float()
+        input_data = torch.from_numpy(self.data[index]["fourier"][:, :self.n_fourier]).float()
+        target_data = torch.from_numpy(self.data[index]["target"]).float()
+
+        return input_data, target_data
 
     def __len__(self):
         return len(self.data)
