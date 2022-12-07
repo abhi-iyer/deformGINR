@@ -1,6 +1,6 @@
 batch_size: 32
 dataset_class: <class 'data.GraphDataset'>
-dataset_args: {'dataset_dir': './regular_bunny_data', 'n_fourier': 3, 'n_nodes_in_sample': 1024}
+dataset_args: {'dataset_dir': './regular_bunny_data', 'n_fourier': 3, 'n_nodes_in_sample': 128}
 model_class: GINR(
   (model): ModuleList(
     (0): Linear(in_features=3, out_features=512, bias=True)

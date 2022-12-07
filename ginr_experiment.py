@@ -13,6 +13,7 @@ class GINR_Experiment():
         output_dir = './ginr_checkpoints/' + self.experiment_name
         os.makedirs(output_dir, exist_ok=True)
         
+        self.output_dir = output_dir
         self.checkpoint_path = os.path.join(output_dir, 'checkpoint.pth.tar')
         self.config_path = os.path.join(output_dir, 'config.txt')
         
@@ -124,11 +125,13 @@ class GINR_Experiment():
         axes[0].plot(self.train_loss)
         axes[0].set_title('Training loss', size=16, color='teal')
         axes[0].set_xlabel('Epochs', size=16, color='teal')
+        axes[0].set_ylim(0, 5)
         axes[0].grid()
         
         axes[1].plot(self.test_loss)
         axes[1].set_title('Testing loss', size=16, color='teal')
         axes[1].set_xlabel('Epochs', size=16, color='teal')
+        axes[1].set_ylim(0, 5)
         axes[1].grid()
 
         plt.show()
@@ -183,7 +186,7 @@ class GINR_Experiment():
         return np.mean(losses)
 
     def save_predictions(self):
-        predictions_dir = os.path.join(self.train_loader.dataset.dataset_dir, "predictions")
+        predictions_dir = os.path.join(self.output_dir, "predictions")
         os.makedirs(predictions_dir, exist_ok=True)
 
         self.model.eval()

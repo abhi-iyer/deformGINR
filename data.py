@@ -5,8 +5,8 @@ def process_data(n_fourier, path, train=True):
     train_path = os.path.abspath(os.path.join(path, "train"))
     test_path = os.path.abspath(os.path.join(path, "test"))
 
-    train_objs = [each.rstrip(".stl") for each in os.listdir(train_path) if (".stl" in each and "deformed" not in each)]
-    test_objs = [each.rstrip(".stl") for each in os.listdir(test_path) if (".stl" in each and "deformed" in each)]
+    train_objs = [each.rstrip(".obj") for each in os.listdir(train_path) if (".obj" in each and "deformed" not in each)]
+    test_objs = [each.rstrip(".obj") for each in os.listdir(test_path) if (".obj" in each and "deformed" in each)]
     assert len(train_objs) == 1
 
     label_file = os.path.join(train_path, train_objs[0] + "_labels.npy")
@@ -18,7 +18,7 @@ def process_data(n_fourier, path, train=True):
     processed_files = []
 
     for obj in process_objs:
-        cloud_file = os.path.join(process_path, obj + ".stl")
+        cloud_file = os.path.join(process_path, obj + ".obj")
         output_file = os.path.join(process_path, obj + "_{}_fourier.npz".format(str(n_fourier)))
 
         if not os.path.exists(output_file):
