@@ -37,7 +37,7 @@ class GINR_Experiment():
         self.test_loader = DataLoader(
             self.config['dataset_class'](**dataset_args),
             batch_size=self.config['batch_size'],
-            shuffle=True,
+            shuffle=False,
             pin_memory=True,
         )
         
@@ -47,8 +47,7 @@ class GINR_Experiment():
         ).to(self.device)
         self.optimizer = self.config['optimizer_class'](self.model.parameters(), **self.config["optimizer_args"])
         
-        labels = nn.functional.one_hot(torch.Tensor(self.train_loader.dataset.data[0]['target']).long()).to(self.device)
-        self.loss_fn = self.config['loss_fn'](weight=1/labels.sum(dim=0))
+        self.loss_fn = self.config['loss_fn'](weight=self.train_loader.dataset.label_weight.to(self.device))
         
         self.config['model_class'] = self.model
         self.config['optimizer_class'] = self.optimizer
@@ -133,13 +132,13 @@ class GINR_Experiment():
         axes[0].plot(self.train_loss)
         axes[0].set_title('Training loss', size=16, color='teal')
         axes[0].set_xlabel('Epochs', size=16, color='teal')
-        axes[0].set_ylim(0, 5)
+        axes[0].set_ylim(0, 10)
         axes[0].grid()
         
         axes[1].plot(self.test_loss)
         axes[1].set_title('Testing loss', size=16, color='teal')
         axes[1].set_xlabel('Epochs', size=16, color='teal')
-        axes[1].set_ylim(0, 5)
+        axes[1].set_ylim(0, 10)
         axes[1].grid()
 
         axes[2].plot(self.train_acc)
@@ -167,10 +166,9 @@ class GINR_Experiment():
 
             targets = targets.to(self.device)
 
-            pred = self.model(inputs.abs()).permute(0, 2, 1)
-            #pred = self.model(inputs) + self.model(-inputs)
+            pred = self.model(inputs.abs()).permute(0, 1)
 
-            loss = self.loss_fn(pred, targets.long())
+            loss = self.loss_fn(pred, targets)
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -186,22 +184,22 @@ class GINR_Experiment():
         
         losses = []
         
-        for inputs, targets in self.test_loader:
-            inputs = inputs.to(self.device)
-            inputs.requires_grad_()
+        with torch.no_grad():
+            for inputs, targets in self.test_loader:
+                inputs = inputs.to(self.device)
 
-            targets = targets.to(self.device)
+                targets = targets.to(self.device)
 
-            pred = self.model(inputs.abs()).permute(0, 2, 1)
-            #pred = self.model(inputs) + self.model(-inputs)
-            
-            loss = self.loss_fn(pred, targets.long())
+                pred = self.model(inputs.abs()).permute(0, 1)
+                
+                loss = self.loss_fn(pred, targets)
 
-            losses.append(loss.detach().cpu().item())
+                losses.append(loss.detach().cpu().item())
         
         return np.mean(losses)
 
     def accuracy(self, train, save_predictions=False):
+        split_label = "Train" if train else "Test"
         loader = self.train_loader if train else self.test_loader
 
         predictions = []
@@ -211,14 +209,13 @@ class GINR_Experiment():
         self.model.eval()
 
         with torch.no_grad():
-            for i in range(len(loader.dataset)):
-                points, targets = loader.dataset.get_all_points(i)
+            for i in range(loader.dataset.num_objects):
+                points, targets = loader.dataset.get_object_points(i)
                 points = points.to(self.device)
 
+                objects.append(loader.dataset.obj_to_output_file[i][0])
                 predictions.append(self.model(points.abs()).argmax(dim=1).detach().cpu().numpy())
-                #predictions.append((self.model(points) + self.model(-points)).argmax(dim=1).detach().cpu().numpy())
                 labels.append(targets.detach().cpu().numpy())
-                objects.append(loader.dataset.files[i][0])
 
             accuracy = (np.concatenate(predictions) == np.concatenate(labels)).sum() / len(np.concatenate(labels))
 
@@ -226,8 +223,13 @@ class GINR_Experiment():
                 predictions_dir = os.path.join(self.output_dir, "predictions")
                 os.makedirs(predictions_dir, exist_ok=True)
 
-                for o, p in zip(objects, predictions):
+                for o, p, l in zip(objects, predictions, labels):
                     np.save(os.path.join(predictions_dir, o), p)
+
+                with open(os.path.join(predictions_dir, split_label + " Accuracies.txt"), "w") as f:
+                    for o, p, l in zip(objects, predictions, labels):
+                        s = "{} Accuracy".format(o) + " {}".format((p == l).sum()/len(l)) + "\n"
+                        f.write(s)
 
             return accuracy
     

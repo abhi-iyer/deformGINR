@@ -44,52 +44,39 @@ def process_data(n_fourier, path, train=True):
 
 
 class GraphDataset(Dataset):
-    def __init__(self, dataset_dir, train, n_fourier=100, n_nodes_in_sample=5000):
+    def __init__(self, dataset_dir, train, n_fourier=100):
         self.dataset_dir = os.path.abspath(dataset_dir)
         self.train = train
         self.n_fourier = n_fourier
-        self.n_nodes_in_sample = n_nodes_in_sample
 
-        self.files = process_data(n_fourier, self.dataset_dir, train)
-        self.data = [np.load(f) for _,f in self.files]
+        self.obj_to_output_file = process_data(n_fourier, self.dataset_dir, train)
+        self.data = [np.load(f) for _,f in self.obj_to_output_file]
+        
+        self.all_points = torch.from_numpy(np.concatenate([each["fourier"] for each in self.data], axis=0)).float()
+        self.all_labels = torch.from_numpy(np.concatenate([each["target"] for each in self.data], axis=0)).long()
 
     def __getitem__(self, index):
-        input_data = torch.from_numpy(self.data[index]["fourier"][:, :self.n_fourier]).float()
-        target_data = torch.from_numpy(self.data[index]["target"]).float()
+        return self.all_points[index, :self.n_fourier], self.all_labels[index]
 
-        n_points = input_data.shape[0]
-        selected_points = self.get_subsampling_idx(n_points, self.n_nodes_in_sample)
+    def get_object_points(self, index):
+        assert 0 <= index <= (len(self.data)-1)
 
-        return input_data[selected_points], target_data[selected_points]
+        points = torch.from_numpy(self.data[index]["fourier"][:, :self.n_fourier]).float()
+        labels = torch.from_numpy(self.data[index]["target"]).long()
 
-    def get_all_points(self, index):
-        # only use one training example -- the embeddings of the regular, undeformed object
-        if self.train:
-            assert index == 0
-
-        input_data = torch.from_numpy(self.data[index]["fourier"][:, :self.n_fourier]).float()
-        target_data = torch.from_numpy(self.data[index]["target"]).float()
-
-        return input_data, target_data
+        return points, labels
 
     def __len__(self):
+        return len(self.all_points)
+
+    @property
+    def num_objects(self):
         return len(self.data)
+
+    @property 
+    def label_weight(self):
+        return 1/F.one_hot(self.all_labels).sum(dim=0)
 
     @property
     def target_dim(self):
-        targets = self.data[0]["target"]
-
-        return int(targets.max() - targets.min() + 1)
-
-    @staticmethod
-    def get_subsampling_idx(n_points, to_keep):
-        if n_points >= to_keep:
-            idx = torch.randperm(n_points)[:to_keep]
-        else:            
-            # Sample some indices more than once
-            idx = (
-                torch.randperm(n_points * int(np.ceil(to_keep / n_points)))[:to_keep]
-                % n_points
-            )
-
-        return idx
+        return int(self.all_labels.max() - self.all_labels.min() + 1)

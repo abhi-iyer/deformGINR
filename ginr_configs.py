@@ -7,12 +7,11 @@ base = dict()
 
 bunny_n_fourier = deepcopy(base)
 bunny_n_fourier.update(
-    batch_size=32,
+    batch_size=256,
     dataset_class=GraphDataset,
     dataset_args=dict(
         dataset_dir="./bunny_data",
         n_fourier=10,
-        n_nodes_in_sample=128,
     ),
     model_class=GINR,
     optimizer_class=optim.AdamW,
