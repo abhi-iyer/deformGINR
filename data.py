@@ -7,7 +7,6 @@ def process_data(n_fourier, path, train=True):
 
     train_objs = [each.rstrip(".obj") for each in os.listdir(train_path) if ".obj" in each]
     test_objs = [each.rstrip(".obj") for each in os.listdir(test_path) if ".obj" in each]
-    assert len(train_objs) == 1
 
     # start processing
     process_path = train_path if train else test_path
