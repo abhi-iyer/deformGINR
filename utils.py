@@ -90,3 +90,7 @@ def normalized_laplacian(A, symmetric=True):
     normalized_adj = normalized_adjacency(A, symmetric=symmetric)
     
     return I - normalized_adj
+
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)

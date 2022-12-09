@@ -1,0 +1,5 @@
+perturb_bunny_17 Accuracy 0.9930849020361122
+perturb_bunny_16 Accuracy 0.990395697272378
+perturb_bunny_15 Accuracy 0.9919323857087975
+perturb_bunny_19 Accuracy 0.9927007299270073
+perturb_bunny_18 Accuracy 0.9888590088359586

@@ -44,6 +44,7 @@ class GINR_Experiment():
         self.model = self.config['model_class'](
             self.train_loader.dataset.n_fourier, 
             self.train_loader.dataset.target_dim,
+            **self.config['model_args'],
         ).to(self.device)
         self.optimizer = self.config['optimizer_class'](self.model.parameters(), **self.config["optimizer_args"])
         
@@ -238,6 +239,7 @@ class GINR_Experiment():
             self.plot(clear=False)
         
         print(self)
+        print("Number of model parameters: {}".format(count_parameters(self.model)))
         print("Start/Continue training from epoch {0}".format(self.epoch))
         
         while self.epoch < num_epochs:            

@@ -14,6 +14,9 @@ deformed_n_fourier.update(
         n_fourier=10,
     ),
     model_class=GINR,
+    model_args=dict(
+        num_layers=4,
+    ),
     optimizer_class=optim.AdamW,
     optimizer_args=dict(
         lr=1e-4,
@@ -48,6 +51,9 @@ perturbed_n_fourier.update(
         n_fourier=10,
     ),
     model_class=GINR,
+    model_args=dict(
+        num_layers=4,
+    ),
     optimizer_class=optim.AdamW,
     optimizer_args=dict(
         lr=1e-4,
@@ -82,6 +88,9 @@ unperturbed_n_fourier.update(
         n_fourier=10,
     ),
     model_class=GINR,
+    model_args=dict(
+        num_layers=4,
+    ),
     optimizer_class=optim.AdamW,
     optimizer_args=dict(
         lr=1e-4,
