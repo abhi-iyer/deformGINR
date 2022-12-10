@@ -1,2 +1,0 @@
-bunny_deformed1 Accuracy 0.9852177387135438
-bunny_deformed0 Accuracy 0.9852177387135438

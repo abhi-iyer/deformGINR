@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.optim import lr_scheduler
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
+from torchmetrics.classification import MulticlassAUROC
 
 import matplotlib as mp
 import matplotlib.pyplot as plt

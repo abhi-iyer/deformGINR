@@ -19,9 +19,9 @@ class GINR_Experiment():
         
         self.history = []
         self.train_loss = []
-        self.train_acc = []
+        self.train_auroc = []
         self.test_loss = []
-        self.test_acc = []
+        self.test_auroc = []
 
         dataset_args = deepcopy(self.config['dataset_args'])
 
@@ -88,9 +88,9 @@ class GINR_Experiment():
             'optimizer' : self.optimizer.state_dict(),
             'history' : self.history,
             'train loss' : self.train_loss,
-            'train acc' : self.train_acc,
+            'train auroc' : self.train_auroc,
             'test loss' : self.test_loss,
-            'test acc' : self.test_acc,
+            'test auroc' : self.test_auroc,
         }
     
     def load_state_dict(self, checkpoint):
@@ -99,9 +99,9 @@ class GINR_Experiment():
         
         self.history = checkpoint['history']
         self.train_loss = checkpoint['train loss']
-        self.train_acc = checkpoint['train acc']
+        self.train_auroc = checkpoint['train auroc']
         self.test_loss = checkpoint['test loss']
-        self.test_acc = checkpoint['test acc']
+        self.test_auroc = checkpoint['test auroc']
         
     def save(self):
         torch.save(self.state_dict(), self.checkpoint_path)
@@ -142,14 +142,14 @@ class GINR_Experiment():
         axes[1].set_ylim(0, 10)
         axes[1].grid()
 
-        axes[2].plot(self.train_acc)
-        axes[2].set_title('Training accuracy', size=16, color='teal')
+        axes[2].plot(self.train_auroc)
+        axes[2].set_title('Training AUROC', size=16, color='teal')
         axes[2].set_xlabel('Epochs', size=16, color='teal')
         axes[2].set_ylim(0, 1)
         axes[2].grid()
         
-        axes[3].plot(self.test_acc)
-        axes[3].set_title('Testing accuracy', size=16, color='teal')
+        axes[3].plot(self.test_auroc)
+        axes[3].set_title('Testing AUROC', size=16, color='teal')
         axes[3].set_xlabel('Epochs', size=16, color='teal')
         axes[3].set_ylim(0, 1)
         axes[3].grid()
@@ -199,7 +199,7 @@ class GINR_Experiment():
         
         return np.mean(losses)
 
-    def accuracy(self, train, save_predictions=False):
+    def auroc(self, train, save_predictions=False):
         split_label = "Train" if train else "Test"
         loader = self.train_loader if train else self.test_loader
 
@@ -213,26 +213,31 @@ class GINR_Experiment():
             for i in range(loader.dataset.num_objects):
                 points, targets = loader.dataset.get_object_points(i)
                 points = points.to(self.device)
+                targets = targets.to(self.device)
 
                 objects.append(loader.dataset.obj_to_output_file[i][0])
-                predictions.append(self.model(points.abs()).argmax(dim=1).detach().cpu().numpy())
-                labels.append(targets.detach().cpu().numpy())
+                predictions.append(self.model(points.abs()))
+                labels.append(targets)
 
-            accuracy = (np.concatenate(predictions) == np.concatenate(labels)).sum() / len(np.concatenate(labels))
+            all_predictions = torch.cat(predictions, dim=0)
+            all_labels = torch.cat(labels, dim=0)
+
+            AUROC = MulticlassAUROC(num_classes=(all_labels.max() + 1).detach().cpu().item(), average="weighted")
+            auroc = AUROC(all_predictions, all_labels).detach().cpu().item()
 
             if save_predictions:
                 predictions_dir = os.path.join(self.output_dir, "predictions")
                 os.makedirs(predictions_dir, exist_ok=True)
 
-                for o, p, l in zip(objects, predictions, labels):
-                    np.save(os.path.join(predictions_dir, o), p)
+                for o, p in zip(objects, predictions):
+                    np.save(os.path.join(predictions_dir, o), p.argmax(dim=1).detach().cpu().numpy())
 
-                with open(os.path.join(predictions_dir, split_label + " Accuracies.txt"), "w") as f:
+                with open(os.path.join(predictions_dir, split_label + " AUROC.txt"), "w") as f:
                     for o, p, l in zip(objects, predictions, labels):
-                        s = "{} Accuracy".format(o) + " {}".format((p == l).sum()/len(l)) + "\n"
+                        s = "{}, MulticlassAUROC:".format(o) + " {}".format(AUROC(p, l).detach().cpu().item()) + "\n"
                         f.write(s)
 
-            return accuracy
+            return auroc
     
     def train(self, num_epochs, show_plot):
         if show_plot:
@@ -244,11 +249,11 @@ class GINR_Experiment():
         
         while self.epoch < num_epochs:            
             self.train_loss.append(self.train_epoch())
-            self.train_acc.append(self.accuracy(train=True, save_predictions=False))
+            self.train_auroc.append(self.auroc(train=True, save_predictions=False))
 
             if (self.epoch % 10) == 0:
                 self.test_loss.append(self.test_epoch())
-                self.test_acc.append(self.accuracy(train=False, save_predictions=False))
+                self.test_auroc.append(self.auroc(train=False, save_predictions=False))
             
             self.history.append(self.epoch + 1)
             
@@ -258,8 +263,8 @@ class GINR_Experiment():
                 print("Epoch: {0}".format(self.epoch))
                 print("Train Loss: {:.4f}".format(self.train_loss[-1]))
                 print("Test Loss: {:.4f}".format(self.test_loss[-1]))
-                print("Train Acc: {:.4f}".format(self.train_acc[-1]))
-                print("Test Acc: {:.4f}".format(self.test_acc[-1]))
+                print("Train AUROC: {:.4f}".format(self.train_auroc[-1]))
+                print("Test AUROC: {:.4f}".format(self.test_auroc[-1]))
                 print()
             
             thread = Thread(target=self.save)
@@ -269,6 +274,6 @@ class GINR_Experiment():
         print("Finished training\n")
 
         print("Saving predictions\n")
-        _ = self.accuracy(train=True, save_predictions=True)
-        _ = self.accuracy(train=False, save_predictions=True)
+        _ = self.auroc(train=True, save_predictions=True)
+        _ = self.auroc(train=False, save_predictions=True)
         print("Finished\n")

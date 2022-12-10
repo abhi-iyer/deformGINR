@@ -1,0 +1,1 @@
+bunny, MulticlassAUROC: 0.9996562600135803
