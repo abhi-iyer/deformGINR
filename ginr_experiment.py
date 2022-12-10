@@ -116,10 +116,12 @@ class GINR_Experiment():
         
         del checkpoint
         
-    def plot(self, clear=False):
+    def plot(self, clear=False, save_path=None):
         if clear:
             display.display(plt.clf())
             display.clear_output(wait=True)
+
+        max_loss_value = max(max(self.train_loss), max(self.test_loss)) + 1
         
         fig, axes = plt.subplots(2, 2, figsize=(10, 5), constrained_layout=True)
         
@@ -131,31 +133,32 @@ class GINR_Experiment():
         axes[3].clear()
         
         axes[0].plot(self.train_loss)
-        axes[0].set_title('Training loss', size=16, color='teal')
-        axes[0].set_xlabel('Epochs', size=16, color='teal')
-        axes[0].set_ylim(0, 10)
+        axes[0].set_ylabel("Train Loss", size=14, color="Teal")
+        axes[0].set_ylim(0, max_loss_value)
         axes[0].grid()
         
         axes[1].plot(self.test_loss)
-        axes[1].set_title('Testing loss', size=16, color='teal')
-        axes[1].set_xlabel('Epochs', size=16, color='teal')
-        axes[1].set_ylim(0, 10)
+        axes[1].set_ylabel("Test Loss", size=14, color="Teal")
+        axes[1].set_ylim(0, max_loss_value)
         axes[1].grid()
 
         axes[2].plot(self.train_auroc)
-        axes[2].set_title('Training AUROC', size=16, color='teal')
-        axes[2].set_xlabel('Epochs', size=16, color='teal')
+        axes[2].set_ylabel('Train AUROC', size=14, color='teal')
+        axes[2].set_xlabel('Epochs', size=14, color='teal')
         axes[2].set_ylim(0, 1)
         axes[2].grid()
         
         axes[3].plot(self.test_auroc)
-        axes[3].set_title('Testing AUROC', size=16, color='teal')
-        axes[3].set_xlabel('Epochs', size=16, color='teal')
+        axes[3].set_ylabel('Test AUROC', size=14, color='teal')
+        axes[3].set_xlabel('Epochs', size=14, color='teal')
         axes[3].set_ylim(0, 1)
         axes[3].grid()
         
+        if save_path:
+            fig.savefig(save_path)
+    
         plt.show()
-        
+    
     def train_epoch(self):
         self.model.train()
         
