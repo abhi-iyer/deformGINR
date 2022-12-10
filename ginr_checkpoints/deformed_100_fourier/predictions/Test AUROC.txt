@@ -1,4 +1,0 @@
-bunny_oversampled_deformed, MulticlassAUROC: 0.8570203185081482
-bunny_deformed1, MulticlassAUROC: 1.0
-bunny_deformed0, MulticlassAUROC: 1.0
-bunny_undersampled_deformed, MulticlassAUROC: 0.4986230432987213

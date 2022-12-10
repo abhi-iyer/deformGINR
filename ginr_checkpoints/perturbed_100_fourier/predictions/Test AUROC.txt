@@ -1,5 +1,0 @@
-perturb_bunny_17, MulticlassAUROC: 0.946138322353363
-perturb_bunny_16, MulticlassAUROC: 0.9708142280578613
-perturb_bunny_15, MulticlassAUROC: 0.958474338054657
-perturb_bunny_19, MulticlassAUROC: 0.9576894044876099
-perturb_bunny_18, MulticlassAUROC: 0.853894054889679
